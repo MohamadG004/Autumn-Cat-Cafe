@@ -21,6 +21,11 @@ class Game:
         self._income_acc      = 0.0
         self.upgrades         = make_upgrades()
 
+        # ── Clicker state ─────────────────────────────────────
+        self.click_income     = CLICK_INCOME
+        self.click_hovered    = False          # is mouse over brew button?
+        self.click_pulse      = 0.0            # animation timer (0-1)
+
         # ── Subsystems ────────────────────────────────────────
         self.renderer     = Renderer(screen)
         self.customers    = CustomerSystem()
@@ -68,12 +73,37 @@ class Game:
     #  EVENT HANDLING
     # ══════════════════════════════════════════════════════════
     def handle_event(self, event):
+        # Update brew-button hover
+        if event.type == pygame.MOUSEMOTION:
+            self.click_hovered = self._brew_button_rect().collidepoint(event.pos)
+
+        # Brew button click
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._brew_button_rect().collidepoint(event.pos):
+                self._do_click(event.pos[0], event.pos[1])
+
         # Upgrade button clicks
         for i, btn in enumerate(self.upgrade_buttons):
             if btn.handle_event(event):
                 self._try_purchase(i)
 
-        # Mouse-move updates hover state (handled in handle_event above)
+    def _brew_button_rect(self):
+        """Returns the pygame.Rect for the on-screen Brew button."""
+        import pygame
+        btn_w, btn_h = 220, 52
+        bx = RIGHT_PANEL_X + RIGHT_PANEL_W // 2 - btn_w // 2
+        by = RIGHT_PANEL_Y + RIGHT_PANEL_H - btn_h - 18
+        return pygame.Rect(bx, by, btn_w, btn_h)
+
+    def _do_click(self, mx, my):
+        """Handle a brew-button click: award yen and show feedback."""
+        earned = self.click_income
+        self.yen += earned
+        self.float_text.add(mx, my - 20, "+\u00a5" + str(earned),
+                            color=GOLDEN, font=self._float_font)
+        self.click_pulse = 1.0          # trigger button pulse
+        self.cat_anim.trigger_click()   # make the cat react
+        audio.play("coin")
 
     def _try_purchase(self, idx: int):
         upg = self.upgrades[idx]
@@ -101,6 +131,10 @@ class Game:
             gained = int(self._income_acc)
             self.yen += gained
             self._income_acc -= gained
+
+        # Clicker pulse decay
+        if self.click_pulse > 0:
+            self.click_pulse = max(0.0, self.click_pulse - dt * 6)
 
         # Update hover state for buttons
         for btn in self.upgrade_buttons:
