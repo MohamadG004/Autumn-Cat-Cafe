@@ -63,6 +63,9 @@ class Renderer:
         # 4) Customers (in front of café, behind leaves)
         game.customers.draw(surface)
 
+        # 4b) Brew (click) button overlay on café card
+        self._draw_brew_button(surface, game)
+
         # 5) Particle leaves (on top of everything)
         game.leaves.draw(surface)
 
@@ -564,6 +567,62 @@ class Renderer:
             r = rot.get_rect(center=(int(lx), int(ly)))
             surface.blit(rot, r)
         random.seed()            # restore randomness
+
+    # ══════════════════════════════════════════════════════════
+    #  BREW (CLICK) BUTTON
+    # ══════════════════════════════════════════════════════════
+    def _draw_brew_button(self, surface, game):
+        btn_rect = game._brew_button_rect()
+        bx, by, bw, bh = btn_rect.x, btn_rect.y, btn_rect.width, btn_rect.height
+
+        hovered = game.click_hovered
+        pulse   = game.click_pulse          # 0-1, 1 = just clicked
+
+        # Pulse scale: button shrinks slightly on click then springs back
+        scale = 1.0 - pulse * 0.06
+        pw = int(bw * scale)
+        ph = int(bh * scale)
+        pbx = bx + (bw - pw) // 2
+        pby = by + (bh - ph) // 2
+
+        # Glow aura (animated when hovered)
+        t = game.cat_anim.t
+        if hovered or pulse > 0:
+            glow_r = int(38 + math.sin(t * 4) * 5 + pulse * 10)
+            glow_alpha = int(60 + math.sin(t * 3) * 20 + pulse * 80)
+            glow_s = pygame.Surface((pw + glow_r*2, ph + glow_r*2), pygame.SRCALPHA)
+            pygame.draw.ellipse(
+                glow_s, (*GOLDEN, min(255, glow_alpha)),
+                (0, 0, pw + glow_r*2, ph + glow_r*2)
+            )
+            surface.blit(glow_s, (pbx - glow_r, pby - glow_r))
+
+        # Button body
+        if hovered:
+            body_col    = GOLDEN_LIGHT
+            border_col  = GOLDEN
+        else:
+            body_col    = GOLDEN_DARK
+            border_col  = GOLDEN_LIGHT
+        if pulse > 0.4:
+            body_col = GOLDEN
+
+        rounded_rect(surface, body_col, (pbx, pby, pw, ph), r=ph // 2,
+                     border=border_col, bw=3)
+
+        # ☕ icon
+        icon_x = pbx + 22
+        icon_y = pby + ph // 2
+        self._draw_cup(surface, icon_x, icon_y - 9, small=True)
+
+        # Label
+        lbl = self.f_sub.render("Brew Coffee", True, DARK_BROWN)
+        surface.blit(lbl, (pbx + 46, pby + ph // 2 - lbl.get_height() // 2))
+
+        # "+¥N" micro hint (top-right corner of button)
+        hint = self.f_rate.render(f"+¥{game.click_income}/click", True, DARK_BROWN)
+        surface.blit(hint, (pbx + pw - hint.get_width() - 10,
+                            pby + ph - hint.get_height() - 4))
 
     # ══════════════════════════════════════════════════════════
     #  CURRENCY BAR (bottom-left)
