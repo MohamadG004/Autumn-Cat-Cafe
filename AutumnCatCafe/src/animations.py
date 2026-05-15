@@ -12,9 +12,18 @@ class CatAnimator:
         self.tail_angle = 0.0
         self.tail_dir   = 1
         self.tail_speed = 48    # degrees / sec
+        self._click_bounce = 0.0   # extra vertical bounce on click
+
+    def trigger_click(self):
+        """Make the cat hop upward when the brew button is pressed."""
+        self._click_bounce = 1.0
 
     def update(self, dt):
         self.t += dt
+
+        # Click bounce decay
+        if self._click_bounce > 0:
+            self._click_bounce = max(0.0, self._click_bounce - dt * 7)
 
         # Tail wag
         self.tail_angle += self.tail_speed * self.tail_dir * dt
@@ -33,8 +42,9 @@ class CatAnimator:
 
     @property
     def bob(self):
-        """Vertical bob offset in pixels."""
-        return math.sin(self.t * 1.4) * 2.5
+        """Vertical bob offset in pixels (includes click hop)."""
+        hop = -math.sin(self._click_bounce * math.pi) * 14
+        return math.sin(self.t * 1.4) * 2.5 + hop
 
     @property
     def tail_rad(self):
